@@ -1,0 +1,38 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: |
+          npm install
+          npx cap add ios || true
+          npx cap sync ios
+
+      - name: Build iOS App and produce unsigned IPA
+        run: |
+          cd ios/App
+          xcodebuild clean build -workspace App.xcworkspace -scheme App -configuration Release -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+          mkdir -p build/Payload
+          cp -r build/Release-iphoneos/App.app build/Payload/
+          cd build
+          zip -r LOL推演_unsigned.ipa Payload
+          mv LOL推演_unsigned.ipa ../../../LOL推演.ipa
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LOL推演_Sideloadly专用
+          path: LOL推演.ipa

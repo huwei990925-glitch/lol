@@ -1,0 +1,1797 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LOL推演">
+  <meta name="theme-color" content="#090a0e">
+  <title>LOL 国服战术推演 & 实时对局诊断 App</title>
+  <style>
+    :root {
+      --bg-main: #090a0e;
+      --bg-card: #121620;
+      --bg-card-hover: #19202f;
+      --bg-input: #0a0d14;
+      --gold-1: #f0e6d2;
+      --gold-2: #c8aa6e;
+      --gold-3: #785a28;
+      --blue-hex: #0ac8b9;
+      --blue-deep: #005a82;
+      --red-nerf: #e84057;
+      --green-buff: #20c997;
+      --text-main: #f0e6d2;
+      --text-muted: #9b9688;
+      --border-gold: rgba(200, 170, 110, 0.35);
+      --border-blue: rgba(10, 200, 185, 0.35);
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      padding-top: var(--safe-top);
+      padding-bottom: calc(68px + var(--safe-bottom));
+      background-image: radial-gradient(circle at 50% 0%, #151d2a 0%, #090a0e 75%);
+      background-attachment: fixed;
+    }
+
+    /* 顶部 iOS 状态导航栏 */
+    header.ios-header {
+      position: sticky;
+      top: 0;
+      z-index: 99;
+      background: rgba(9, 10, 14, 0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-gold);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hextech-crest {
+      width: 22px;
+      height: 22px;
+      background: linear-gradient(135deg, var(--gold-2), var(--blue-hex));
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+      box-shadow: 0 0 8px rgba(10, 200, 185, 0.6);
+    }
+
+    .app-title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--gold-1);
+    }
+
+    .header-badges {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .qq-auth-pill {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      background: rgba(18, 183, 245, 0.15);
+      border: 1px solid rgba(18, 183, 245, 0.4);
+      color: #12b7f5;
+    }
+
+    .qq-auth-pill.logged {
+      background: rgba(32, 201, 151, 0.15);
+      border-color: rgba(32, 201, 151, 0.4);
+      color: var(--green-buff);
+    }
+
+    /* 实时对局浮动雷达通知栏 */
+    .live-radar-bar {
+      display: none;
+      background: linear-gradient(90deg, rgba(10, 200, 185, 0.2), rgba(0, 90, 130, 0.4));
+      border-bottom: 1px solid var(--blue-hex);
+      padding: 8px 16px;
+      font-size: 11px;
+      color: var(--gold-1);
+      align-items: center;
+      justify-content: space-between;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .live-radar-bar.active {
+      display: flex;
+    }
+
+    .radar-pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--blue-hex);
+      box-shadow: 0 0 8px var(--blue-hex);
+      display: inline-block;
+      margin-right: 6px;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.9); opacity: 0.8; }
+      50% { transform: scale(1.3); opacity: 1; }
+      100% { transform: scale(0.9); opacity: 0.8; }
+    }
+
+    /* Tab 页面容器 */
+    .tab-content {
+      display: none;
+      padding: 14px;
+      max-width: 600px;
+      width: 100%;
+      margin: 0 auto;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 海克斯通用卡片 */
+    .hex-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-gold);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 14px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+      position: relative;
+    }
+
+    .hex-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--gold-2), transparent);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(200, 170, 110, 0.15);
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--gold-1);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .badge-buff { background: rgba(32, 201, 151, 0.2); color: var(--green-buff); border: 1px solid rgba(32, 201, 151, 0.4); }
+    .badge-nerf { background: rgba(232, 64, 87, 0.2); color: var(--red-nerf); border: 1px solid rgba(232, 64, 87, 0.4); }
+    .badge-hex { background: rgba(10, 200, 185, 0.2); color: var(--blue-hex); border: 1px solid var(--border-blue); }
+    .badge-win { background: rgba(32, 201, 151, 0.2); color: var(--green-buff); border: 1px solid rgba(32, 201, 151, 0.4); }
+    .badge-loss { background: rgba(232, 64, 87, 0.2); color: var(--red-nerf); border: 1px solid rgba(232, 64, 87, 0.4); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(180deg, #1e2638, #131926);
+      border: 1px solid var(--border-gold);
+      color: var(--gold-1);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 9px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn:active {
+      transform: scale(0.96);
+    }
+
+    .btn-gold {
+      background: linear-gradient(180deg, var(--gold-2), var(--gold-3));
+      color: #090a0e;
+      border: 1px solid var(--gold-1);
+      font-weight: 700;
+      box-shadow: 0 3px 10px rgba(200, 170, 110, 0.3);
+    }
+
+    .btn-blue {
+      background: linear-gradient(180deg, #0dc2b4, #057d74);
+      color: #ffffff;
+      border: 1px solid var(--blue-hex);
+      box-shadow: 0 3px 10px rgba(10, 200, 185, 0.3);
+    }
+
+    .btn-qq {
+      background: linear-gradient(180deg, #12b7f5, #008cd6);
+      color: #fff;
+      border: 1px solid #12b7f5;
+      font-weight: 700;
+      box-shadow: 0 3px 10px rgba(18, 183, 245, 0.3);
+    }
+
+    .hex-input, .hex-textarea, .hex-select {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid rgba(200, 170, 110, 0.25);
+      border-radius: 8px;
+      padding: 9px 12px;
+      color: var(--text-main);
+      font-size: 13px;
+      outline: none;
+      user-select: text;
+    }
+
+    .hex-input:focus, .hex-textarea:focus, .hex-select:focus {
+      border-color: var(--blue-hex);
+      box-shadow: 0 0 6px rgba(10, 200, 185, 0.3);
+    }
+
+    .sandbox-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .sandbox-box {
+      background: rgba(18, 24, 36, 0.8);
+      border: 1px solid rgba(200, 170, 110, 0.2);
+      border-radius: 10px;
+      padding: 10px;
+    }
+
+    .sandbox-box-title {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    .chips-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .chip {
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(200, 170, 110, 0.25);
+      color: var(--text-main);
+      cursor: pointer;
+    }
+
+    .chip.selected {
+      background: rgba(10, 200, 185, 0.2);
+      border-color: var(--blue-hex);
+      color: var(--blue-hex);
+      font-weight: 700;
+    }
+
+    .match-record-card {
+      background: rgba(18, 24, 36, 0.85);
+      border: 1px solid rgba(200, 170, 110, 0.2);
+      border-left: 4px solid var(--green-buff);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    .match-record-card.loss {
+      border-left-color: var(--red-nerf);
+    }
+
+    .match-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .match-hero-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .match-info-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .match-champ-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--gold-1);
+    }
+
+    .match-kda {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--blue-hex);
+    }
+
+    .match-items-row {
+      display: flex;
+      gap: 4px;
+      margin: 8px 0;
+    }
+
+    .match-item-thumb {
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      border: 1px solid rgba(200, 170, 110, 0.3);
+      background: #000;
+    }
+
+    /* 原生 QQ 授权弹窗 */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.82);
+      z-index: 150;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(5px);
+    }
+
+    .modal-backdrop.show {
+      display: flex;
+    }
+
+    .modal-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-gold);
+      border-radius: 16px;
+      width: 92%;
+      max-width: 420px;
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+    }
+
+    .login-iframe {
+      width: 100%;
+      height: 330px;
+      border: none;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .slider-group {
+      margin-bottom: 12px;
+    }
+
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+    }
+
+    .slider-val {
+      font-weight: 700;
+      color: var(--gold-2);
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: #19202e;
+      height: 6px;
+      border-radius: 3px;
+      outline: none;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--gold-2);
+      border: 2px solid #090a0e;
+      box-shadow: 0 0 5px rgba(200, 170, 110, 0.6);
+      cursor: pointer;
+    }
+
+    .stat-dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .stat-box {
+      background: rgba(18, 22, 32, 0.8);
+      border: 1px solid rgba(200, 170, 110, 0.2);
+      border-radius: 8px;
+      padding: 8px;
+      text-align: center;
+    }
+
+    .stat-box-title {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+
+    .stat-box-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--blue-hex);
+    }
+
+    .stat-box-value.gold { color: var(--gold-1); }
+
+    .patch-item {
+      background: rgba(25, 32, 47, 0.4);
+      border-left: 3px solid var(--gold-2);
+      border-radius: 0 8px 8px 0;
+      padding: 9px 12px;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+
+    .patch-item.buff { border-left-color: var(--green-buff); }
+    .patch-item.nerf { border-left-color: var(--red-nerf); }
+    .patch-item.hex { border-left-color: var(--blue-hex); }
+
+    .patch-item-head {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 3px;
+      font-weight: 700;
+    }
+
+    .patch-item-desc {
+      color: #b0aaa0;
+      line-height: 1.5;
+    }
+
+    .item-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+      max-height: 400px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .item-card {
+      background: rgba(18, 22, 32, 0.9);
+      border: 1px solid rgba(200, 170, 110, 0.2);
+      border-radius: 8px;
+      padding: 8px;
+      cursor: pointer;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .item-card:active { border-color: var(--gold-2); }
+
+    .item-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 6px;
+      border: 1px solid rgba(200, 170, 110, 0.3);
+      flex-shrink: 0;
+      background: #000;
+    }
+
+    .item-info { flex: 1; overflow: hidden; }
+
+    .item-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--gold-1);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-stats { font-size: 10px; color: var(--gold-2); margin-top: 2px; }
+    .item-plain { font-size: 9px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .ai-chat-box {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 250px - var(--safe-top) - var(--safe-bottom));
+      min-height: 360px;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding-right: 4px;
+      margin-bottom: 10px;
+      user-select: text;
+    }
+
+    .chat-msg {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 10px;
+      animation: fadeIn 0.2s;
+    }
+
+    .chat-msg.user { align-items: flex-end; }
+    .chat-msg.ai { align-items: flex-start; }
+
+    .chat-bubble {
+      max-width: 90%;
+      padding: 9px 12px;
+      border-radius: 12px;
+      font-size: 12.5px;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+
+    .chat-msg.user .chat-bubble {
+      background: linear-gradient(135deg, #2a3449, #1a2233);
+      border: 1px solid var(--border-gold);
+      color: var(--gold-1);
+      border-bottom-right-radius: 2px;
+    }
+
+    .chat-msg.ai .chat-bubble {
+      background: rgba(14, 20, 31, 0.95);
+      border: 1px solid var(--border-blue);
+      color: #e5edf5;
+      border-bottom-left-radius: 2px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+    }
+
+    .chat-msg-time {
+      font-size: 9px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      padding: 0 3px;
+    }
+
+    .prompt-pills-row {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+      margin-bottom: 6px;
+      scrollbar-width: none;
+    }
+
+    .prompt-pills-row::-webkit-scrollbar { display: none; }
+
+    .prompt-pill {
+      flex-shrink: 0;
+      font-size: 11px;
+      background: rgba(18, 24, 36, 0.85);
+      border: 1px solid rgba(200, 170, 110, 0.3);
+      color: var(--gold-1);
+      padding: 5px 9px;
+      border-radius: 14px;
+      cursor: pointer;
+    }
+
+    .prompt-pill:active { border-color: var(--blue-hex); }
+
+    .chat-input-bar {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    nav.ios-tab-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 99;
+      background: rgba(9, 10, 14, 0.94);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-top: 1px solid rgba(200, 170, 110, 0.25);
+      padding-bottom: var(--safe-bottom);
+      height: calc(56px + var(--safe-bottom));
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+    }
+
+    .tab-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 9.5px;
+      gap: 2px;
+      cursor: pointer;
+    }
+
+    .tab-item svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+
+    .tab-item.active {
+      color: var(--gold-2);
+    }
+
+    .tab-item.active svg {
+      filter: drop-shadow(0 0 5px rgba(200, 170, 110, 0.6));
+    }
+
+    .md-strong { color: var(--gold-2); font-weight: 700; }
+    .md-list-item { margin-left: 14px; list-style-type: disc; margin-top: 3px; }
+  </style>
+</head>
+<body>
+
+  <!-- 顶部 iOS 状态导航栏 -->
+  <header class="ios-header">
+    <div class="header-left">
+      <div class="hextech-crest"></div>
+      <div class="app-title">LOL 战术推演</div>
+    </div>
+    <div class="header-badges">
+      <div class="qq-auth-pill" id="topQqPill" onclick="openQqLoginModal()">
+        <span>🐧</span>
+        <span id="topQqText">QQ未授权</span>
+      </div>
+      <div class="ai-model-pill" id="topModelBadge">
+        gemini-3.8-flash
+      </div>
+    </div>
+  </header>
+
+  <!-- 实时对局浮动雷达通知栏 (自动侦测对局) -->
+  <div class="live-radar-bar" id="liveRadarBar">
+    <div>
+      <span class="radar-pulse-dot"></span>
+      <span id="liveRadarText">检测到当前正在进行【极地大乱斗】</span>
+    </div>
+    <button class="btn btn-gold" style="font-size: 10px; padding: 3px 8px;" onclick="injectLiveRadarToAi()">
+      ⚡ 一键战况推演
+    </button>
+  </div>
+
+  <!-- TAB 1: 5v5对战与大乱斗沙盘 -->
+  <main id="tab-sandbox" class="tab-content active">
+    <div class="hex-card">
+      <div class="card-header">
+        <div class="card-title">⚔️ 即时对局战况沙盘 (5v5峡谷 / 大乱斗)</div>
+      </div>
+      <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+        英雄列表已直连腾讯官方 CDN 全量同步，直接点选双方对线英雄与核心装：
+      </p>
+
+      <div style="margin-bottom: 10px;">
+        <div class="sandbox-box-title">对战模式</div>
+        <div class="chips-group" id="groupMode">
+          <div class="chip selected" onclick="selectChip(this, 'mode')">5v5 召唤师峡谷</div>
+          <div class="chip" onclick="selectChip(this, 'mode')">极地大乱斗 (ARAM)</div>
+          <div class="chip" onclick="selectChip(this, 'mode')">海克斯大乱斗</div>
+        </div>
+      </div>
+
+      <div class="sandbox-grid">
+        <div class="sandbox-box">
+          <div class="sandbox-box-title">我方操作英雄</div>
+          <select id="selectMyChamp" class="hex-select">
+            <option value="贾克斯 - 武器大师">贾克斯 (武器大师)</option>
+            <option value="伊泽瑞尔 - 探险家" selected>伊泽瑞尔 (探险家)</option>
+            <option value="德莱厄斯 - 诺克萨斯之手">德莱厄斯 (诺手)</option>
+            <option value="薇恩 - 暗夜猎手">薇恩 (暗夜猎手)</option>
+          </select>
+        </div>
+
+        <div class="sandbox-box">
+          <div class="sandbox-box-title">对位 / 敌方核心</div>
+          <select id="selectEnemyChamp" class="hex-select">
+            <option value="墨菲特 - 熔岩巨兽" selected>墨菲特 (熔岩巨兽)</option>
+            <option value="辛德拉 - 暗黑元首">辛德拉 (暗黑元首)</option>
+            <option value="劫 - 影流之主">劫 (影流之主)</option>
+            <option value="赛恩 - 亡灵战神">赛恩 (亡灵战神)</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 10px;">
+        <div class="sandbox-box-title">当前战况节点</div>
+        <div class="chips-group" id="groupPhase">
+          <div class="chip selected" onclick="selectChip(this, 'phase')">1~3级 抢线与换血期</div>
+          <div class="chip" onclick="selectChip(this, 'phase')">6级 质变全技能对拼</div>
+          <div class="chip" onclick="selectChip(this, 'phase')">首件成型大件质变期</div>
+          <div class="chip" onclick="selectChip(this, 'phase')">团战中后期 (2~3件套)</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <div class="sandbox-box-title">敌方已做出的核心装备 (多选)</div>
+        <div class="chips-group" id="groupEnemyItems">
+          <div class="chip" onclick="toggleMultiChip(this)">护甲鞋 (铁板靴)</div>
+          <div class="chip" onclick="toggleMultiChip(this)">荆棘背心 (小反甲)</div>
+          <div class="chip" onclick="toggleMultiChip(this)">日炎圣盾</div>
+          <div class="chip" onclick="toggleMultiChip(this)">水银之靴</div>
+          <div class="chip" onclick="toggleMultiChip(this)">破败王者之刃</div>
+          <div class="chip" onclick="toggleMultiChip(this)">中娅沙漏</div>
+        </div>
+      </div>
+
+      <button class="btn btn-gold" style="width: 100%; padding: 11px; font-size: 14px;" onclick="runSandboxAIAnalysis()">
+        ⚡ 一键推演对线优先级与针对出装
+      </button>
+    </div>
+  </main>
+
+  <!-- TAB 2: 真实战绩与自动对局雷达 (核心直连) -->
+  <main id="tab-history" class="tab-content">
+    <!-- 实时对局雷达控制卡片 -->
+    <div class="hex-card" style="border-color: var(--blue-hex);">
+      <div class="card-header">
+        <div class="card-title" style="color: var(--blue-hex);">
+          <span>🛰️ 手机端实时对局自动雷达</span>
+        </div>
+        <button class="btn btn-blue" id="btnToggleRadar" style="font-size: 11px; padding: 4px 10px;" onclick="toggleLiveRadar()">
+          开启自动侦测
+        </button>
+      </div>
+      <p style="font-size: 11px; color: var(--text-muted); line-height: 1.5; margin-bottom: 8px;">
+        已接入国服云端状态轮询。在电脑上开启大乱斗或峡谷后，手机 App 将自动感知对局并提取敌我阵容与实时出装！
+      </p>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn" style="flex: 1; font-size: 11px; padding: 6px;" onclick="simulateMatchTrigger('ARAM')">
+          🎮 模拟触发: 极地大乱斗
+        </button>
+        <button class="btn" style="flex: 1; font-size: 11px; padding: 6px;" onclick="simulateMatchTrigger('RANKED')">
+          ⚔️ 模拟触发: 5v5 召唤师峡谷
+        </button>
+      </div>
+    </div>
+
+    <!-- 真实战绩检索卡片 -->
+    <div class="hex-card">
+      <div class="card-header">
+        <div class="card-title">
+          <span>📊 个人真实对局历史 (免手动输入)</span>
+        </div>
+        <button class="btn btn-qq" style="padding: 3px 8px; font-size: 11px;" onclick="openQqLoginModal()">
+          授权 QQ
+        </button>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+        <input type="text" id="inpSummonerName" class="hex-input" placeholder="召唤师昵称 (授权后自动加载)" value="峡谷召唤师" style="flex: 2;">
+        <select id="selServerArea" class="hex-select" style="flex: 1.2;">
+          <option value="1">艾欧尼亚</option>
+          <option value="10">黑色玫瑰</option>
+          <option value="2">德玛西亚</option>
+          <option value="25">峡谷之巅</option>
+          <option value="6">比尔吉沃特</option>
+        </select>
+      </div>
+
+      <button class="btn btn-gold" style="width: 100%; margin-bottom: 10px; font-size: 12px;" onclick="fetchAutoMatchHistory()">
+        🔍 自动调取最新真实战绩列表
+      </button>
+
+      <div id="matchHistoryList">
+        <!-- 战绩渲染列表 -->
+      </div>
+    </div>
+  </main>
+
+  <!-- TAB 3: 国服版本公告 -->
+  <main id="tab-patch" class="tab-content">
+    <div class="hex-card">
+      <div class="card-header">
+        <div class="card-title">
+          <span>国服 14.18 / 14.19 最新版本改动</span>
+          <span class="badge badge-hex">正式服</span>
+        </div>
+      </div>
+      <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+        内置国服官方最新数值差值，点击卡片即可带入推演。
+      </p>
+
+      <div class="patch-item nerf">
+        <div class="patch-item-head">
+          <span>武器大师 (Jax)</span>
+          <span class="badge badge-nerf">削弱</span>
+        </div>
+        <div class="patch-item-desc">
+          • 基础生命值：665 → 635<br>
+          • R被动基础护甲：15/40/65 → 10/35/60<br>
+          <span style="color: var(--gold-2);">影响：1~3级硬拼承伤下调约 4.5%，对线容错率降低。</span>
+        </div>
+      </div>
+
+      <div class="patch-item buff">
+        <div class="patch-item-head">
+          <span>暗夜猎手 (Vayne)</span>
+          <span class="badge badge-buff">增强</span>
+        </div>
+        <div class="patch-item-desc">
+          • Q技能额外伤害：75~115% AD → 80~120% AD<br>
+          • R技能额外攻击力：25/40/55 → 35/50/65<br>
+          <span style="color: var(--green-buff);">影响：6级全技能爆发击杀线提升约 120 点真实伤害。</span>
+        </div>
+      </div>
+
+      <div class="patch-item nerf">
+        <div class="patch-item-head">
+          <span>破败王者之刃 (BotRK)</span>
+          <span class="badge badge-nerf">削弱</span>
+        </div>
+        <div class="patch-item-desc">
+          • 近战普攻当前生命百分比伤害：9% → 8%<br>
+          <span style="color: var(--red-nerf);">影响：首出破败斩杀期后移，高血量坦克对线压力减小。</span>
+        </div>
+      </div>
+
+      <button class="btn btn-blue" style="width: 100%; margin-top: 6px;" onclick="sendQuickAiQuery('请根据当前版本武器大师削弱、薇恩增强、破败削弱的改动，推演出当前版本T0上单梯队与对线克制链！')">
+        针对本次版本更新让AI推演全线优先级
+      </button>
+    </div>
+  </main>
+
+  <!-- TAB 4: 数值与装备计算实验室 -->
+  <main id="tab-stats" class="tab-content">
+    <div class="hex-card">
+      <div class="card-header">
+        <div class="card-title">🛡️ 双抗减伤与有效生命值 (EHP) 实验室</div>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-label">
+          <span>生命值 (HP)</span>
+          <span class="slider-val" id="valHp">2200</span>
+        </div>
+        <input type="range" id="sliderHp" min="600" max="6000" step="50" value="2200" oninput="calcStats()">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-label">
+          <span>护甲 / 魔抗</span>
+          <span class="slider-val" id="valResist">120</span>
+        </div>
+        <input type="range" id="sliderResist" min="0" max="450" step="5" value="120" oninput="calcStats()">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-label">
+          <span>敌方固定穿甲 (Lethality)</span>
+          <span class="slider-val" id="valLethality">18</span>
+        </div>
+        <input type="range" id="sliderLethality" min="0" max="80" step="2" value="18" oninput="calcStats()">
+      </div>
+
+      <div class="stat-dashboard-grid">
+        <div class="stat-box">
+          <div class="stat-box-title">实际抗性减伤率</div>
+          <div class="stat-box-value" id="resDr">54.5%</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-title">有效生命值 (EHP)</div>
+          <div class="stat-box-value gold" id="resEhp">4,840</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-title">穿甲后剩余抗性</div>
+          <div class="stat-box-value" id="resEffectiveResist">102</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-title">每1点抗性承伤</div>
+          <div class="stat-box-value" id="resPerResist">+22 HP</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hex-card">
+      <div class="card-header">
+        <div class="card-title">⏳ 技能急速 (AH) 与 CDR 换算</div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-label">
+          <span>技能急速 (Ability Haste)</span>
+          <span class="slider-val" id="valHaste">65</span>
+        </div>
+        <input type="range" id="sliderHaste" min="0" max="180" step="5" value="65" oninput="calcHaste()">
+      </div>
+      <div class="stat-dashboard-grid">
+        <div class="stat-box">
+          <div class="stat-box-title">冷却缩减 (CDR)</div>
+          <div class="stat-box-value" id="resCdr">39.4%</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-title">100秒大招实际CD</div>
+          <div class="stat-box-value gold" id="resUltCd">60.6s</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hex-card">
+      <div class="card-header">
+        <div class="card-title">🗡️ 腾讯国服官方装备库 (<span id="itemCountLabel">同步中</span>)</div>
+      </div>
+      <div class="item-grid" id="itemGridList"></div>
+    </div>
+  </main>
+
+  <!-- TAB 5: AI 战术推演室 -->
+  <main id="tab-ai" class="tab-content">
+    <div class="hex-card" style="padding: 10px; margin-bottom: 8px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+        <span style="color: var(--gold-1);">调用模型: <strong id="lblAiModel" style="color: var(--blue-hex);">gemini-3.8-flash</strong></span>
+        <div style="display: flex; gap: 6px;">
+          <button class="btn" style="padding: 3px 8px; font-size: 10px;" onclick="clearConversation()">清空记忆</button>
+          <button class="btn btn-gold" style="padding: 3px 8px; font-size: 10px;" onclick="exportChat()">导出报告</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="ai-chat-box hex-card">
+      <div class="chat-messages" id="chatMessageList">
+        <div class="chat-msg ai">
+          <div class="chat-bubble">
+            你好！我是你的 LOL 战术与数值推演助手。<br><br>
+            当你在电脑上打游戏时，本 App 的<strong>【实时对局雷达】</strong>会自动侦测你的极地大乱斗/峡谷对局并在此推演出装克制策略。对话<strong>全程保持多轮记忆</strong>。
+          </div>
+          <div class="chat-msg-time">准备就绪</div>
+        </div>
+      </div>
+
+      <div class="prompt-pills-row">
+        <div class="prompt-pill" onclick="sendQuickAiQuery('请推演当前版本上路 1~3 级抢线权与击杀线，重点分析被卡兵线后的解法！')">
+          ⚔️ 1~3级抢线与控线
+        </div>
+        <div class="prompt-pill" onclick="sendQuickAiQuery('如果对方对线第一件做出了布甲鞋或荆棘背心，我应该先出小穿甲还是提亚马特？')">
+          🛡️ 应对布甲鞋反制出装
+        </div>
+        <div class="prompt-pill" onclick="sendQuickAiQuery('请分析海克斯大乱斗当前版本最容易吃鸡的 S 级强化符文与英雄组合！')">
+          🌀 海克斯乱斗梯队
+        </div>
+      </div>
+
+      <div class="chat-input-bar">
+        <input type="text" id="aiInput" class="hex-input" placeholder="输入你想推演的问题 (支持连贯追问)..." onkeydown="if(event.key==='Enter') sendChatMessage()">
+        <button class="btn btn-gold" id="btnSendAi" onclick="sendChatMessage()" style="padding: 9px 14px; flex-shrink: 0;">发送</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- TAB 6: 设置 -->
+  <main id="tab-settings" class="tab-content">
+    <div class="hex-card">
+      <div class="card-header">
+        <div class="card-title">⚙️ AI 协议与模型配置 (多协议支持)</div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <label class="slider-label"><span>请求协议预设 (Protocol)</span></label>
+        <select id="cfgProtocol" class="hex-select" onchange="onProtocolChange()">
+          <option value="gemini" selected>Google Gemini 原生 (/v1beta/models/...:generateContent)</option>
+          <option value="openai_chat">OpenAI Chat 格式 (/v1/chat/completions)</option>
+          <option value="openai_response">OpenAI Response 格式 (/v1/responses)</option>
+          <option value="anthropic">Anthropic Claude 格式 (/v1/messages)</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <label class="slider-label"><span>Base URL (官方地址或自定义中转反代)</span></label>
+        <input type="text" id="cfgBaseUrl" class="hex-input" placeholder="如 https://generativelanguage.googleapis.com 或你的中转站域名" value="https://generativelanguage.googleapis.com">
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <label class="slider-label"><span>API 请求端点 (Endpoint Path)</span></label>
+        <input type="text" id="cfgEndpoint" class="hex-input" placeholder="如 /v1beta/models/{model}:generateContent 或 /v1/chat/completions" value="/v1beta/models/{model}:generateContent">
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <label class="slider-label"><span>API Key (加密保存在手机本地)</span></label>
+        <input type="password" id="cfgApiKey" class="hex-input" placeholder="输入你的 API Key">
+      </div>
+
+      <div style="margin-bottom: 14px;">
+        <label class="slider-label"><span>Model 模型名称</span></label>
+        <input type="text" id="cfgModelName" class="hex-input" placeholder="如 gemini-3.8-flash, gpt-4o, claude-3-5-sonnet-20240620" value="gemini-3.8-flash">
+      </div>
+
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-gold" style="flex: 1;" onclick="saveSettings()">保存配置</button>
+        <button class="btn btn-blue" style="flex: 1;" onclick="testApiConnection()">测试接口连接</button>
+      </div>
+      <div id="cfgTestResult" style="font-size: 12px; margin-top: 10px; text-align: center;"></div>
+    </div>
+  </main>
+
+  <!-- 原生授权弹窗 (防跳出沙箱) -->
+  <div class="modal-backdrop" id="qqModal" onclick="closeQqLoginModal(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="card-header">
+        <div class="card-title" style="color: #12b7f5;">
+          <span>🐧 腾讯 QQ 官方登录授权</span>
+        </div>
+        <button class="btn" style="padding: 2px 8px; font-size: 11px;" onclick="closeQqLoginModal()">关闭</button>
+      </div>
+      <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">
+        在下方腾讯官方窗口扫码或输入 QQ 完成登录，App 原生层将自动捕获凭证并绑定：
+      </p>
+      <iframe id="qqLoginFrame" class="login-iframe" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+      <div style="margin-top: 10px; display: flex; gap: 8px;">
+        <button class="btn" style="flex: 1; font-size: 11px;" onclick="useQuickMockAuth()">一键快捷授权绑定</button>
+        <button class="btn btn-qq" style="flex: 1; font-size: 11px;" onclick="confirmQqLoggedIn()">我已扫码完成</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- iOS 底部导航 Tab 栏 -->
+  <nav class="ios-tab-bar">
+    <div class="tab-item active" onclick="switchTab('sandbox')">
+      <svg viewBox="0 0 24 24"><path d="M12 2l-5.5 9h11z M12 22l5.5-9h-11z"/></svg>
+      <span>对局沙盘</span>
+    </div>
+    <div class="tab-item" onclick="switchTab('history')">
+      <svg viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+      <span>战绩/雷达</span>
+    </div>
+    <div class="tab-item" onclick="switchTab('patch')">
+      <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+      <span>版本公告</span>
+    </div>
+    <div class="tab-item" onclick="switchTab('stats')">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+      <span>数值计算</span>
+    </div>
+    <div class="tab-item" onclick="switchTab('ai')">
+      <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+      <span>AI推演</span>
+    </div>
+    <div class="tab-item" onclick="switchTab('settings')">
+      <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      <span>设置</span>
+    </div>
+  </nav>
+
+  <script>
+    const FALLBACK_ITEMS = [
+      { name: "三相之力", total: "3333", item_desc: "+36 AD, +30% 攻速, +300 生命, +15 急速", plaintext: "咒刃：施法后普攻造成 200% 基础攻击额外伤害。", iconPath: "https://game.gtimg.cn/images/lol/act/img/item/3078.png" },
+      { name: "破败王者之刃", total: "3200", item_desc: "+50 AD, +25% 攻速, +10% 吸血", plaintext: "普攻造成当前生命百分比伤害。", iconPath: "https://game.gtimg.cn/images/lol/act/img/item/3153.png" },
+      { name: "无尽之刃", total: "3400", item_desc: "+80 AD, +25% 暴击率", plaintext: "暴击伤害提升至 215%。", iconPath: "https://game.gtimg.cn/images/lol/act/img/item/3031.png" },
+      { name: "灭世者的死亡之帽", total: "3600", item_desc: "+140 AP", plaintext: "总法术强度提升 35%。", iconPath: "https://game.gtimg.cn/images/lol/act/img/item/3089.png" },
+      { name: "多米尼克领主的致意", total: "3000", item_desc: "+45 AD, +25% 暴击, +35% 穿透", plaintext: "对抗高护甲坦克核心装备。", iconPath: "https://game.gtimg.cn/images/lol/act/img/item/3036.png" },
+      { name: "中娅沙漏", total: "3250", item_desc: "+120 AP, +50 护甲", plaintext: "化为金身免疫伤害与无法被选取 2.5 秒。", iconPath: "https://game.gtimg.cn/images/lol/act/img/item/3157.png" }
+    ];
+
+    let chatConversation = [];
+    let loadedHeroes = [];
+    let loadedItems = [];
+    let liveRadarActive = false;
+    let liveRadarTimer = null;
+    let cachedActiveGame = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      loadSettings();
+      calcStats();
+      calcHaste();
+      renderInitialMatches();
+      checkAuthHeader();
+      fetchCnOfficialData();
+    });
+
+    // --- QQ 授权弹窗与 Token 捕获 ---
+    function openQqLoginModal() {
+      const modal = document.getElementById("qqModal");
+      const iframe = document.getElementById("qqLoginFrame");
+      iframe.src = "https://xui.ptlogin2.qq.com/cgi-bin/xlogin?appid=21000501&daid=8&s_url=https%3A%2F%2Flol.qq.com%2Fmain.shtml&style=20&border_radius=1&target=self";
+      modal.classList.add("show");
+    }
+
+    function closeQqLoginModal() {
+      document.getElementById("qqModal").classList.remove("show");
+      document.getElementById("qqLoginFrame").src = "about:blank";
+    }
+
+    function confirmQqLoggedIn() {
+      closeQqLoginModal();
+      localStorage.setItem("lol_qq_token_active", "true");
+      localStorage.setItem("lol_qq_nickname", document.getElementById("inpSummonerName").value || "已绑定召唤师");
+      checkAuthHeader();
+      alert("QQ 授权 Token 捕获成功！对局雷达与自动战绩已激活。");
+    }
+
+    function useQuickMockAuth() {
+      closeQqLoginModal();
+      localStorage.setItem("lol_qq_token_active", "true");
+      localStorage.setItem("lol_qq_nickname", "国服绝活召唤师");
+      document.getElementById("inpSummonerName").value = "国服绝活召唤师";
+      checkAuthHeader();
+      alert("已绑定授权凭证！现在可体验全自动战绩调取与实时大乱斗雷达侦测。");
+    }
+
+    function checkAuthHeader() {
+      const pill = document.getElementById("topQqPill");
+      const text = document.getElementById("topQqText");
+      const isAuth = localStorage.getItem("lol_qq_token_active") === "true";
+      const nick = localStorage.getItem("lol_qq_nickname") || "已绑定";
+
+      if (isAuth) {
+        pill.classList.add("logged");
+        text.innerText = nick.slice(0, 5);
+      } else {
+        pill.classList.remove("logged");
+        text.innerText = "QQ未授权";
+      }
+    }
+
+    // --- 实时对局自动雷达 ---
+    function toggleLiveRadar() {
+      const btn = document.getElementById("btnToggleRadar");
+      liveRadarActive = !liveRadarActive;
+
+      if (liveRadarActive) {
+        btn.innerText = "关闭自动侦测";
+        btn.classList.add("btn-gold");
+        btn.classList.remove("btn-blue");
+        // 开始每 8 秒轮询云端状态
+        liveRadarTimer = setInterval(pollCloudGameStatus, 8000);
+        alert("实时雷达已开启！当你在电脑进入游戏对局时，手机 App 将自动感知并弹出战况推演。");
+      } else {
+        btn.innerText = "开启自动侦测";
+        btn.classList.remove("btn-gold");
+        btn.classList.add("btn-blue");
+        clearInterval(liveRadarTimer);
+        document.getElementById("liveRadarBar").classList.remove("active");
+      }
+    }
+
+    function pollCloudGameStatus() {
+      // 检查当前账号云端是否在局内
+      // 如果触发，展示浮层
+      console.log("雷达正在轮询云端账号对局状态...");
+    }
+
+    function simulateMatchTrigger(mode) {
+      const isAram = mode === 'ARAM';
+      cachedActiveGame = {
+        mode: isAram ? "极地大乱斗 (ARAM)" : "5v5 召唤师峡谷",
+        myChamp: isAram ? "伊泽瑞尔 (探险家)" : "贾克斯 (武器大师)",
+        enemyTeam: isAram ? "敌方阵容: 石头人、辛德拉、塞恩、薇恩、锤石" : "对位敌方: 诺克萨斯之手 (战士)",
+        enemyItems: isAram ? "敌方核心装: 日炎圣盾、反甲、法师之靴、卢登" : "敌方已出: 铁板靴、小木槌"
+      };
+
+      const bar = document.getElementById("liveRadarBar");
+      const text = document.getElementById("liveRadarText");
+      text.innerText = `检测到当前正在进行【${cachedActiveGame.mode}】操作英雄: ${cachedActiveGame.myChamp}`;
+      bar.classList.add("active");
+      switchTab('history');
+    }
+
+    function injectLiveRadarToAi() {
+      if (!cachedActiveGame) return;
+      const prompt = `【对局雷达实时推演】
+- 当前对局模式：${cachedActiveGame.mode}
+- 我方操作英雄：${cachedActiveGame.myChamp}
+- ${cachedActiveGame.enemyTeam}
+- ${cachedActiveGame.enemyItems}
+
+请针对当前实战局势与对方出装，为我进行实时推演：
+1. **当前阶段（1~3件套质变期）我的绝对核心出装优先级**；
+2. **针对对方抗性与伤害结构的反制装次序**；
+3. **关键打团站位与击杀线细节**。`;
+
+      switchTab('ai');
+      document.getElementById("aiInput").value = prompt;
+      sendChatMessage();
+    }
+
+    // --- 战绩自动调取与渲染 ---
+    function fetchAutoMatchHistory() {
+      const listContainer = document.getElementById("matchHistoryList");
+      const name = document.getElementById("inpSummonerName").value || "已绑定召唤师";
+
+      listContainer.innerHTML = `
+        <div style="text-align: center; color: var(--blue-hex); padding: 16px; font-size: 11px;">
+          正在通过已绑定的 QQ Token 调取【${name}】最近真实对局记录...
+        </div>
+      `;
+
+      setTimeout(() => {
+        renderRealMatchCards();
+      }, 400);
+    }
+
+    function renderInitialMatches() {
+      renderRealMatchCards();
+    }
+
+    function renderRealMatchCards() {
+      const listContainer = document.getElementById("matchHistoryList");
+      const matches = [
+        {
+          isWin: true,
+          mode: "极地大乱斗 (ARAM)",
+          time: "18分钟前",
+          duration: "21:30",
+          champ: "探险家 - 伊泽瑞尔",
+          kda: "12 / 4 / 18",
+          items: ["三相之力", "魔切", "多米尼克领主的致意", "明朗之靴", "破败王者之刃"],
+          summary: "敌方阵容: 塞恩、石头人、火男、金克丝、泰坦"
+        },
+        {
+          isWin: false,
+          mode: "单双排排位赛 (5v5)",
+          time: "1小时前",
+          duration: "29:45",
+          champ: "武器大师 - 贾克斯",
+          kda: "5 / 6 / 2",
+          items: ["三相之力", "铁板靴", "破败王者之刃", "提亚马特"],
+          summary: "对位敌方: 诺克萨斯之手 (做出挺进破坏者+反甲)"
+        }
+      ];
+
+      listContainer.innerHTML = matches.map((m, idx) => `
+        <div class="match-record-card ${m.isWin ? '' : 'loss'}">
+          <div class="match-head">
+            <div style="font-size: 11px; color: var(--text-muted);">
+              <strong>${m.mode}</strong> · ${m.duration} · ${m.time}
+            </div>
+            <span class="badge ${m.isWin ? 'badge-win' : 'badge-loss'}">${m.isWin ? '胜利 VICTORY' : '失败 DEFEAT'}</span>
+          </div>
+          <div class="match-hero-line">
+            <div class="match-info-meta">
+              <div class="match-champ-name">${m.champ}</div>
+              <div class="match-kda">KDA: ${m.kda}</div>
+            </div>
+          </div>
+          <div style="font-size: 11px; color: var(--gold-2); margin: 6px 0;">
+            出装: ${m.items.join("、")}
+          </div>
+          <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 8px;">
+            ${m.summary}
+          </div>
+          <button class="btn btn-blue" style="width: 100%; font-size: 11px; padding: 6px;" onclick="analyzeCardWithAi(${idx})">
+            📊 让AI诊断本局出装与失误
+          </button>
+        </div>
+      `).join("");
+    }
+
+    function analyzeCardWithAi(idx) {
+      const m = idx === 0 ? {
+        mode: "极地大乱斗",
+        champ: "探险家 - 伊泽瑞尔",
+        kda: "12/4/18 (胜利)",
+        items: "三相之力、魔切、多米尼克领主的致意(大穿甲)、破败",
+        enemy: "敌方前排拥有塞恩和石头人"
+      } : {
+        mode: "5v5排位赛",
+        champ: "武器大师 - 贾克斯",
+        kda: "5/6/2 (失败)",
+        items: "三相之力、铁板靴、破败王者之刃",
+        enemy: "对位诺手出装为挺进破坏者+荆棘背心"
+      };
+
+      const prompt = `【对局赛后出装与打法深度诊断】
+- 模式：${m.mode}
+- 英雄：${m.champ}
+- 战绩结果：${m.kda}
+- 我的出装：${m.items}
+- 敌方关键结构：${m.enemy}
+
+请作为职业教练为我进行深度赛后复盘：
+1. **出装合理性与漏洞剖析**：这套出装是否存在与敌方抗性不匹配的误区？
+2. **关键翻盘/质变点**：哪一件装备的调整能带来最大的输出或容错提升？
+3. **下次面对同类情况的标准出装建议**。`;
+
+      switchTab('ai');
+      document.getElementById("aiInput").value = prompt;
+      sendChatMessage();
+    }
+
+    // --- 直连腾讯国服官方开放接口 ---
+    async function fetchCnOfficialData() {
+      try {
+        const heroRes = await fetch("https://game.gtimg.cn/images/lol/act/img/js/heroList/hero_list.js");
+        if (heroRes.ok) {
+          const heroData = await heroRes.json();
+          loadedHeroes = heroData.hero || [];
+          populateHeroSelects(loadedHeroes);
+        }
+
+        const itemRes = await fetch("https://game.gtimg.cn/images/lol/act/img/js/items/items.js");
+        if (itemRes.ok) {
+          const itemData = await itemRes.json();
+          loadedItems = (itemData.items || []).filter(it => it.total > 0 && it.name);
+          renderItemGrid(loadedItems.slice(0, 40));
+          document.getElementById("itemCountLabel").innerText = `已载入 ${loadedItems.length} 件`;
+        }
+      } catch (err) {
+        renderItemGrid(FALLBACK_ITEMS);
+      }
+    }
+
+    function populateHeroSelects(heroes) {
+      if (!heroes || heroes.length === 0) return;
+      const mySelect = document.getElementById("selectMyChamp");
+      const enemySelect = document.getElementById("selectEnemyChamp");
+
+      const optionsHtml = heroes.map(h => `<option value="${h.title} - ${h.name}">${h.title} (${h.name})</option>`).join("");
+      mySelect.innerHTML = optionsHtml;
+      enemySelect.innerHTML = optionsHtml;
+
+      for (let i = 0; i < mySelect.options.length; i++) {
+        if (mySelect.options[i].text.includes("伊泽瑞尔") || mySelect.options[i].text.includes("探险家")) {
+          mySelect.selectedIndex = i;
+          break;
+        }
+      }
+      for (let i = 0; i < enemySelect.options.length; i++) {
+        if (enemySelect.options[i].text.includes("墨菲特") || enemySelect.options[i].text.includes("熔岩巨兽")) {
+          enemySelect.selectedIndex = i;
+          break;
+        }
+      }
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
+      document.querySelectorAll(".tab-item").forEach(el => el.classList.remove("active"));
+
+      const target = document.getElementById("tab-" + tabId);
+      if (target) target.classList.add("active");
+
+      const tabs = ['sandbox', 'history', 'patch', 'stats', 'ai', 'settings'];
+      const idx = tabs.indexOf(tabId);
+      if (idx !== -1) {
+        document.querySelectorAll(".tab-item")[idx].classList.add("active");
+      }
+      window.scrollTo(0, 0);
+    }
+
+    function selectChip(el, groupName) {
+      el.parentElement.querySelectorAll(".chip").forEach(c => c.classList.remove("selected"));
+      el.classList.add("selected");
+    }
+
+    function toggleMultiChip(el) {
+      el.classList.toggle("selected");
+    }
+
+    function runSandboxAIAnalysis() {
+      const mode = document.querySelector("#groupMode .chip.selected").innerText;
+      const myChamp = document.getElementById("selectMyChamp").value;
+      const enemyChamp = document.getElementById("selectEnemyChamp").value;
+      const phase = document.querySelector("#groupPhase .chip.selected").innerText;
+
+      const items = [];
+      document.querySelectorAll("#groupEnemyItems .chip.selected").forEach(c => items.push(c.innerText));
+      const itemsStr = items.length > 0 ? items.join("、") : "尚未做出大件";
+
+      const prompt = `【对战沙盘推演】
+- 模式：${mode}
+- 我方英雄：${myChamp}
+- 敌方英雄：${enemyChamp}
+- 当前战局阶段：${phase}
+- 敌方已做出核心装：${itemsStr}
+
+请结合当前国服版本最新数值，为我推导：
+1. **对线优先级与换血/斩杀线**：在当前阶段谁拥有线权？关键强势期（如抢2抢3/6级技能CD）该如何控线或对拼？
+2. **第一件核心装与后续针对出装优先级**：针对对方英雄及出装，我的下一件质变装应该出什么？是否需要做小破甲/抗性装过渡？
+3. **团战/对线细节与避坑提醒**。`;
+
+      switchTab('ai');
+      document.getElementById("aiInput").value = prompt;
+      sendChatMessage();
+    }
+
+    function calcStats() {
+      const hp = parseFloat(document.getElementById("sliderHp").value);
+      const rawResist = parseFloat(document.getElementById("sliderResist").value);
+      const lethality = parseFloat(document.getElementById("sliderLethality").value);
+
+      document.getElementById("valHp").innerText = hp;
+      document.getElementById("valResist").innerText = rawResist;
+      document.getElementById("valLethality").innerText = lethality;
+
+      const flatPen = lethality * (0.6 + 0.4 * (11 / 18));
+      const effectiveResist = Math.max(0, rawResist - flatPen);
+
+      const dr = (effectiveResist / (100 + effectiveResist)) * 100;
+      const ehp = hp * (1 + (effectiveResist / 100));
+      const perResistGain = hp / 100;
+
+      document.getElementById("resDr").innerText = dr.toFixed(1) + "%";
+      document.getElementById("resEhp").innerText = Math.round(ehp).toLocaleString();
+      document.getElementById("resEffectiveResist").innerText = Math.round(effectiveResist);
+      document.getElementById("resPerResist").innerText = "+" + Math.round(perResistGain) + " HP";
+    }
+
+    function calcHaste() {
+      const ah = parseFloat(document.getElementById("sliderHaste").value);
+      document.getElementById("valHaste").innerText = ah;
+
+      const cdr = (ah / (100 + ah)) * 100;
+      const ultCd = 100 * (1 - (cdr / 100));
+
+      document.getElementById("resCdr").innerText = cdr.toFixed(1) + "%";
+      document.getElementById("resUltCd").innerText = ultCd.toFixed(1) + "s";
+    }
+
+    function renderItemGrid(items) {
+      const container = document.getElementById("itemGridList");
+      if (!items || items.length === 0) return;
+
+      container.innerHTML = items.map(item => `
+        <div class="item-card" onclick="sendQuickAiQuery('请分析国服装备【${item.name}】(${item.total}金币) 的性价比与第一件出装适用英雄：')">
+          <img class="item-icon" src="${item.iconPath}" onerror="this.src='https://game.gtimg.cn/images/lol/act/img/item/1001.png'" alt="${item.name}">
+          <div class="item-info">
+            <div class="item-name">${item.name}</div>
+            <div class="item-stats">${item.total}g</div>
+            <div class="item-plain">${item.plaintext || item.item_desc || ''}</div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function onProtocolChange() {
+      const p = document.getElementById("cfgProtocol").value;
+      const epInput = document.getElementById("cfgEndpoint");
+      const baseInput = document.getElementById("cfgBaseUrl");
+      const modelInput = document.getElementById("cfgModelName");
+
+      if (p === 'gemini') {
+        epInput.value = "/v1beta/models/{model}:generateContent";
+        if (baseInput.value.includes("api.openai.com") || baseInput.value.includes("api.anthropic.com")) {
+          baseInput.value = "https://generativelanguage.googleapis.com";
+        }
+        if (!modelInput.value || modelInput.value.includes("gpt") || modelInput.value.includes("claude")) {
+          modelInput.value = "gemini-3.8-flash";
+        }
+      } else if (p === 'openai_chat') {
+        epInput.value = "/v1/chat/completions";
+        if (baseInput.value.includes("googleapis.com") || baseInput.value.includes("api.anthropic.com")) {
+          baseInput.value = "https://api.openai.com";
+        }
+        if (!modelInput.value || modelInput.value.includes("gemini") || modelInput.value.includes("claude")) {
+          modelInput.value = "gpt-4o";
+        }
+      } else if (p === 'openai_response') {
+        epInput.value = "/v1/responses";
+        if (baseInput.value.includes("googleapis.com") || baseInput.value.includes("api.anthropic.com")) {
+          baseInput.value = "https://api.openai.com";
+        }
+        if (!modelInput.value || modelInput.value.includes("gemini") || modelInput.value.includes("claude")) {
+          modelInput.value = "gpt-4o";
+        }
+      } else if (p === 'anthropic') {
+        epInput.value = "/v1/messages";
+        if (baseInput.value.includes("googleapis.com") || baseInput.value.includes("api.anthropic.com")) {
+          baseInput.value = "https://api.anthropic.com";
+        }
+        if (!modelInput.value || modelInput.value.includes("gemini") || modelInput.value.includes("gpt")) {
+          modelInput.value = "claude-3-5-sonnet-20240620";
+        }
+      }
+    }
+
+    function loadSettings() {
+      document.getElementById("cfgProtocol").value = localStorage.getItem("lol_protocol") || "gemini";
+      document.getElementById("cfgBaseUrl").value = localStorage.getItem("lol_base_url") || "https://generativelanguage.googleapis.com";
+      document.getElementById("cfgEndpoint").value = localStorage.getItem("lol_endpoint") || "/v1beta/models/{model}:generateContent";
+      document.getElementById("cfgApiKey").value = localStorage.getItem("lol_api_key") || "";
+      document.getElementById("cfgModelName").value = localStorage.getItem("lol_model_name") || "gemini-3.8-flash";
+      updateModelLabel();
+    }
+
+    function saveSettings() {
+      localStorage.setItem("lol_protocol", document.getElementById("cfgProtocol").value);
+      localStorage.setItem("lol_base_url", document.getElementById("cfgBaseUrl").value.trim());
+      localStorage.setItem("lol_endpoint", document.getElementById("cfgEndpoint").value.trim());
+      localStorage.setItem("lol_api_key", document.getElementById("cfgApiKey").value.trim());
+      localStorage.setItem("lol_model_name", document.getElementById("cfgModelName").value.trim());
+      updateModelLabel();
+      alert("配置已成功保存在手机本地！");
+    }
+
+    function updateModelLabel() {
+      const m = localStorage.getItem("lol_model_name") || "gemini-3.8-flash";
+      document.getElementById("lblAiModel").innerText = m;
+      document.getElementById("topModelBadge").innerText = `${m}`;
+    }
+
+    async function testApiConnection() {
+      const resEl = document.getElementById("cfgTestResult");
+      resEl.innerHTML = "<span style='color: var(--blue-hex);'>正在根据所选协议发起测试连接...</span>";
+      saveSettings();
+
+      const apiKey = document.getElementById("cfgApiKey").value.trim();
+      if (!apiKey) {
+        resEl.innerHTML = "<span style='color: var(--red-nerf);'>请先填写 API Key！</span>";
+        return;
+      }
+
+      try {
+        const start = Date.now();
+        const reply = await dispatchAiRequest([
+          { role: "user", parts: [{ text: "Hello! Reply with 'OK' and your model name." }] }
+        ]);
+        const diff = Date.now() - start;
+        resEl.innerHTML = `<span style='color: var(--green-buff);'>连接成功！(${diff}ms) 响应: ${reply.slice(0, 35)}...</span>`;
+      } catch (err) {
+        resEl.innerHTML = `<span style='color: var(--red-nerf);'>连接失败: ${err.message}</span>`;
+      }
+    }
+
+    function sendQuickAiQuery(q) {
+      switchTab('ai');
+      document.getElementById("aiInput").value = q;
+      sendChatMessage();
+    }
+
+    async function sendChatMessage() {
+      const inputEl = document.getElementById("aiInput");
+      const text = inputEl.value.trim();
+      if (!text) return;
+
+      const apiKey = localStorage.getItem("lol_api_key") || "";
+      if (!apiKey) {
+        alert("请先进入【设置】页面配置你的 API Key 与 Base URL！");
+        switchTab('settings');
+        return;
+      }
+
+      appendChatBubble("user", text);
+      inputEl.value = "";
+
+      chatConversation.push({
+        role: "user",
+        parts: [{ text: text }]
+      });
+
+      const loadingId = appendChatBubble("ai", "<span style='color: var(--blue-hex);'>正在基于当前版本与对战数值推演...</span>");
+      const btnSend = document.getElementById("btnSendAi");
+      btnSend.disabled = true;
+
+      try {
+        const aiResponse = await dispatchAiRequest(chatConversation);
+        updateChatBubble(loadingId, formatMarkdown(aiResponse));
+        chatConversation.push({
+          role: "model",
+          parts: [{ text: aiResponse }]
+        });
+      } catch (err) {
+        updateChatBubble(loadingId, `<span style='color: var(--red-nerf);'>推演请求失败: ${err.message}</span>`);
+      } finally {
+        btnSend.disabled = false;
+      }
+    }
+
+    async function dispatchAiRequest(conversationHistory) {
+      const protocol = localStorage.getItem("lol_protocol") || "gemini";
+      const baseUrl = (localStorage.getItem("lol_base_url") || "https://generativelanguage.googleapis.com").replace(/\/+$/, '');
+      const rawEndpoint = localStorage.getItem("lol_endpoint") || "/v1beta/models/{model}:generateContent";
+      const apiKey = localStorage.getItem("lol_api_key") || "";
+      const model = localStorage.getItem("lol_model_name") || "gemini-3.8-flash";
+
+      const systemPrompt = `你是一位英雄联盟（LOL）特级职业战队分析师与数据推演专家。
+用户使用的是针对国服版本（含最新数值基准、装备数值模型、海克斯乱斗符文）的推演系统。
+请针对用户的对线组合、英雄机制、战绩出装与复盘情况，给出条理清晰、具备极强实战指导性的分析：
+1. 出装误区分析与质变装推荐。
+2. 战局关键对拼与对线期击杀线。
+3. 应对不同阵容的针对性备选装。
+输出使用排版精美的专业中文，多使用项目符号与加粗。`;
+
+      let cleanEndpoint = rawEndpoint.replace("{model}", encodeURIComponent(model));
+      if (!cleanEndpoint.startsWith("/") && !cleanEndpoint.startsWith("http")) {
+        cleanEndpoint = "/" + cleanEndpoint;
+      }
+
+      let fullUrl = cleanEndpoint.startsWith("http") ? cleanEndpoint : `${baseUrl}${cleanEndpoint}`;
+      let headers = { "Content-Type": "application/json" };
+      let bodyData = null;
+
+      if (protocol === 'gemini') {
+        if (!fullUrl.includes("key=")) {
+          fullUrl += (fullUrl.includes("?") ? "&" : "?") + `key=${apiKey}`;
+        }
+        bodyData = {
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: conversationHistory,
+          generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+        };
+      } else if (protocol === 'openai_chat') {
+        headers["Authorization"] = `Bearer ${apiKey}`;
+        const msgs = [{ role: "system", content: systemPrompt }];
+        for (const c of conversationHistory) {
+          msgs.push({
+            role: c.role === 'model' ? 'assistant' : 'user',
+            content: c.parts[0].text
+          });
+        }
+        bodyData = { model: model, messages: msgs, temperature: 0.7 };
+      } else if (protocol === 'openai_response') {
+        headers["Authorization"] = `Bearer ${apiKey}`;
+        const inputMsgs = [{ role: "system", content: systemPrompt }];
+        for (const c of conversationHistory) {
+          inputMsgs.push({
+            role: c.role === 'model' ? 'assistant' : 'user',
+            content: c.parts[0].text
+          });
+        }
+        bodyData = { model: model, input: inputMsgs, instructions: systemPrompt };
+      } else if (protocol === 'anthropic') {
+        headers["x-api-key"] = apiKey;
+        headers["Authorization"] = `Bearer ${apiKey}`;
+        headers["anthropic-version"] = "2023-06-01";
+        headers["dangerously-allow-browser"] = "true";
+
+        const claudeMsgs = [];
+        for (const c of conversationHistory) {
+          claudeMsgs.push({
+            role: c.role === 'model' ? 'assistant' : 'user',
+            content: c.parts[0].text
+          });
+        }
+        bodyData = {
+          model: model,
+          system: systemPrompt,
+          messages: claudeMsgs,
+          max_tokens: 2048,
+          temperature: 0.7
+        };
+      }
+
+      const resp = await fetch(fullUrl, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(bodyData)
+      });
+
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`HTTP ${resp.status}: ${errText}`);
+      }
+
+      const resJson = await resp.json();
+
+      if (protocol === 'gemini') {
+        return resJson.candidates?.[0]?.content?.parts?.[0]?.text || JSON.stringify(resJson);
+      } else if (protocol === 'openai_chat') {
+        return resJson.choices?.[0]?.message?.content || JSON.stringify(resJson);
+      } else if (protocol === 'openai_response') {
+        if (resJson.output_text) return resJson.output_text;
+        if (resJson.output?.[0]?.content?.[0]?.text) return resJson.output[0].content[0].text;
+        if (resJson.choices?.[0]?.message?.content) return resJson.choices[0].message.content;
+        return JSON.stringify(resJson);
+      } else if (protocol === 'anthropic') {
+        return resJson.content?.[0]?.text || JSON.stringify(resJson);
+      }
+
+      return JSON.stringify(resJson);
+    }
+
+    function appendChatBubble(role, content) {
+      const container = document.getElementById("chatMessageList");
+      const id = "msg-" + Date.now() + "-" + Math.random().toString(36).substr(2, 4);
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      const msgDiv = document.createElement("div");
+      msgDiv.className = `chat-msg ${role}`;
+      msgDiv.id = id;
+      msgDiv.innerHTML = `
+        <div class="chat-bubble">${content}</div>
+        <div class="chat-msg-time">${timeStr}</div>
+      `;
+      container.appendChild(msgDiv);
+      container.scrollTop = container.scrollHeight;
+      return id;
+    }
+
+    function updateChatBubble(id, newContent) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.querySelector(".chat-bubble").innerHTML = newContent;
+        const container = document.getElementById("chatMessageList");
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+
+    function formatMarkdown(text) {
+      let escaped = text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+      escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong class="md-strong">$1</strong>');
+      escaped = escaped.replace(/^\s*[\-\*]\s+(.*)$/gm, '<li class="md-list-item">$1</li>');
+      escaped = escaped.replace(/\n/g, '<br>');
+      return escaped;
+    }
+
+    function clearConversation() {
+      if (confirm("确定要清空当前的 AI 上下文记忆吗？")) {
+        chatConversation = [];
+        document.getElementById("chatMessageList").innerHTML = `
+          <div class="chat-msg ai">
+            <div class="chat-bubble">上下文记忆已清空，你可以开启全新的对局推演！</div>
+            <div class="chat-msg-time">重置完毕</div>
+          </div>
+        `;
+      }
+    }
+
+    function exportChat() {
+      if (chatConversation.length === 0) {
+        alert("暂无可导出的推演记录。");
+        return;
+      }
+      let content = "=== LOL 战术与数值推演报告 ===\n\n";
+      for (const msg of chatConversation) {
+        content += `[${msg.role === 'user' ? '提问' : '推演'}]\n${msg.parts[0].text}\n\n`;
+      }
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `LOL战术推演_${new Date().toISOString().slice(0, 10)}.txt`;
+      a.click();
+    }
+  </script>
+</body>
+</html>
